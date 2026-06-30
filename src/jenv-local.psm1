@@ -17,6 +17,11 @@ function Invoke-Local {
     # Remove the local JEnv
     if ($name -eq "remove") {
         $config.locals = @($config.locals | Where-Object { $_.path -ne (Get-Location) })
+        # Clear cache file - next java call will re-resolve via jenv getjava
+        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
+        if (Test-Path $cacheFile) {
+            Remove-Item -path $cacheFile
+        }
         Write-Output "Your local JEnv was unset"
         return
     }
@@ -33,6 +38,9 @@ function Invoke-Local {
         if ($jenv.path -eq (Get-Location)) {
             # if path is used replace with new version
             $jenv.name = $name
+            # Update cache file
+            $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
+            Set-Content -path $cacheFile -value $jenv.path
             Write-Output ("Your replaced your java version for {0} {1}" -f (Get-Location), $name)
             return
         }
@@ -43,6 +51,10 @@ function Invoke-Local {
         path = (Get-Location).path
         name = $name
     }
+
+    # Update cache file
+    $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
+    Set-Content -path $cacheFile -value $jenv.path
 
     Write-Output ("{0} is now your local java version for {1}" -f (Get-Location), $name)
 }

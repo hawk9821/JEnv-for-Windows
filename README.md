@@ -24,21 +24,29 @@ I hope you enjoy it. Please give me a star if you like my work. Thank you!
 5) **Some reported problems putting JEnv into their C:/Programs folder due to required admin rights**
 6) **I hope I could help you. Else open an issue**
 
-## Warning:
+ ## Warning:
 Sometimes its necessary to call jenv when entering a new directory with a local jenv specified. This will set your JAVA_HOME for the current shell and ensures that tools like maven work properly
+
+## Performance
+JEnv uses path caching to avoid PowerShell startup overhead on every `java` call:
+- First `java` call: ~1-2 seconds (calls PowerShell, resolves path, caches it)
+- Subsequent `java` calls: ~300ms (reads cache directly)
+- If `JENVUSE` env var is set, `java` uses it directly without cache lookup
+
+To force cache refresh after changing `jenv local`, run `jenv local <name>` again or call `jenv getjava` once.
 
 ## Usage (Note: local overwrites change. use overwrites local)
 1) **Add a new Java  environment (requires absolute path)**  
 *jenv add `<name> <path>`*  
-Example: `jenv add jdk15 D:\Programme\Java\jdk-15.0.1`
- 
+Example: `jenv add jdk15 "D:\Programme\Java\jdk-15.0.1"`
+  
 2) **Change your java version for the current session**  
 *jenv use `<name>`*  
 Example: `jenv use jdk15`  
 Environment var for scripting:  
 ---PowerShell: `$ENV:JENVUSE="jdk17"`  
 ---CMD/BATCH: `set "JENVUSE=jdk17"`
- 
+  
 3) **Clear the java version for the current session**  
 *jenv use remove*  
 Example: `jenv use remove`  
@@ -57,7 +65,7 @@ Example: `jenv local jdk15  `
 6) **Clear the java version for this folder**  
 *jenv local remove*  
 Example: `jenv local remove` 
- 
+  
 7) **List all your Java environments**  
 *jenv list*  
 Example: `jenv list`
@@ -68,7 +76,8 @@ Example: `jenv remove jdk15`
 
 9) **Enable the use of javac, javaw or other executables sitting in the java directory**  
 *jenv link `<Executable name>`*  
-Example: `jenv link javac`
+Example: `jenv link javac`  
+Creates a batch file (e.g., `javac.bat`) in the JEnv root directory. After linking, you can call `javac` directly from command line.
 
 10) **Uninstall jenv and automatically restore a Java version of your choice**  
 *jenv uninstall `<name>`*  
@@ -79,10 +88,24 @@ Example: `jenv uninstall jdk17`
 Example: `jenv autoscan "C:\Program Files\Java"`  
 Example: `jenv autoscan` // Will search entire system
 Example: `jenv autoscan -y "C:\Program Files\Java"` // Will accept defaults
- ## How does this work?
+Note: Autoscan uses the JDK version number as the name (e.g., "8", "11", "17"), not "jdk8", "jdk11", etc.
+
+12) **Get the resolved Java path (for scripting/debugging)**  
+*jenv getjava*  
+Example: `jenv getjava`  
+Returns the Java path that would be used, following priority: JENVUSE > local > parent local > global. Also refreshes the cache.
+
+## How does this work?
 This script creates a java.bat file that calls the java.exe with the correct version
 When the ps script changes env vars they get exported to tmp files and applied by the batch file
-An additional parameter to the PowerShell script was added. "--output" alias "-o" will create the tmp files for the batch. See images below  
+An additional parameter to the PowerShell script was added. "--output" alias "-o" will create the tmp files for the batch.
+
+### Java Resolution Flow
+1. `java` command invokes `java.bat`
+2. `java.bat` checks `JENVUSE` env var first (session override)
+3. Falls back to reading `jenv.java.cache` file (instant, no PowerShell)
+4. If no cache, calls `jenv getjava` via PowerShell to resolve and cache the path
+5. Subdirectory inheritance: `jenv getjava` traverses parent directories to find `jenv local` settings
 
 ![SystemEnvironmentVariablesHirachyShell](https://user-images.githubusercontent.com/55546882/130204196-1a800310-4454-49bd-8d80-161b0e7cca3f.PNG)
 

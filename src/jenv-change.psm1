@@ -27,6 +27,9 @@ function Invoke-Change {
             Set-Content -path "jenv.home.tmp" -value $jenv.path # Create temp file so no restart of the active shell is required
         }
         [System.Environment]::SetEnvironmentVariable("JAVA_HOME", $jenv.path, [System.EnvironmentVariableTarget]::User) # Set globally}
+        # Cache path for java.bat to avoid PowerShell startup on every java call
+        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
+        Set-Content -path $cacheFile -value $jenv.path
         Write-Host "JEnv changed globally"
     }
 }

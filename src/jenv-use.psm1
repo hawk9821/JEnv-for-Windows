@@ -20,6 +20,11 @@ function Invoke-Use {
         if ($output) {
             Set-Content -path "jenv.use.tmp" -value "remove" # Create temp file so no restart of the active shell is required
         }
+        # Clear cache file
+        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
+        if (Test-Path $cacheFile) {
+            Remove-Item -path $cacheFile
+        }
         Write-Host "Your session JEnv was unset"
         return
     }
@@ -38,6 +43,9 @@ function Invoke-Use {
             Set-Content -path "jenv.home.tmp" -value $jenv.path # Create temp file so no restart of the active shell is required
             Set-Content -path "jenv.use.tmp" -value $jenv.path # Create temp file so no restart of the active shell is required
         }
+        # Cache path for java.bat to avoid PowerShell startup on every java call
+        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
+        Set-Content -path $cacheFile -value $jenv.path
         Write-Host 'JEnv changed for the current shell session. Careful this overwrites "jenv local"'
     }
 }
