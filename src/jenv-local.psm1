@@ -14,14 +14,15 @@ function Invoke-Local {
         return
     }
 
+    # Cache file in JEnv installation directory
+    $cacheFile = Join-Path (Split-Path $PSScriptRoot -Parent) "jenv.java.cache"
+    $currentPath = (Get-Location).ProviderPath
+
     # Remove the local JEnv
     if ($name -eq "remove") {
-        $config.locals = @($config.locals | Where-Object { $_.path -ne (Get-Location) })
-        # Clear cache file - next java call will re-resolve via jenv getjava
-        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
-        if (Test-Path $cacheFile) {
-            Remove-Item -path $cacheFile
-        }
+        $config.locals = @($config.locals | Where-Object { $_.path -ne $currentPath })
+        # Remove this directory from cache
+        Remove-CacheEntry -cacheFile $cacheFile -directory $currentPath
         Write-Output "Your local JEnv was unset"
         return
     }
@@ -37,26 +38,81 @@ function Invoke-Local {
     # Store JDK path before loop as $jenv gets overwritten in foreach
     $jdkPath = $jenv.path
     foreach ($localEntry in $config.locals) {
-        if ($localEntry.path -eq (Get-Location)) {
+        if ($localEntry.path -eq $currentPath) {
             # if path is used replace with new version
             $localEntry.name = $name
-            # Update cache file with JDK path, not directory path
-            $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
-            Set-Content -path $cacheFile -value $jdkPath
-            Write-Output ("Your replaced your java version for {0} {1}" -f (Get-Location), $name)
+            # Update cache file with JDK path
+            Update-Cache -cacheFile $cacheFile -directory $currentPath -path $jdkPath
+            Write-Output ("Your replaced your java version for {0} {1}" -f $currentPath, $name)
             return
         }
     }
 
     # Add new JEnv
     $config.locals += [PSCustomObject]@{
-        path = (Get-Location).path
+        path = $currentPath
         name = $name
     }
 
     # Update cache file
-    $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
-    Set-Content -path $cacheFile -value $jenv.path
+    Update-Cache -cacheFile $cacheFile -directory $currentPath -path $jdkPath
 
-    Write-Output ("{0} is now your local java version for {1}" -f (Get-Location), $name)
+    Write-Output ("{0} is now your local java version for {1}" -f $currentPath, $name)
+}
+
+function Update-Cache {
+    param(
+        [string]$cacheFile,
+        [string]$directory,
+        [string]$path
+    )
+
+    # Read existing cache
+    $cache = @{}
+    if (Test-Path $cacheFile) {
+        $lines = Get-Content $cacheFile
+        foreach ($line in $lines) {
+            if ($line -match "^(.+):(.+)$") {
+                $cache[$matches[1]] = $matches[2]
+            }
+        }
+    }
+
+    # Update entry for this directory
+    $cache[$directory] = $path
+
+    # Write back cache
+    $content = ""
+    foreach ($key in $cache.Keys) {
+        $content += "$key`:$($cache[$key])`n"
+    }
+    Set-Content -Path $cacheFile -Value $content.TrimEnd()
+}
+
+function Remove-CacheEntry {
+    param(
+        [string]$cacheFile,
+        [string]$directory
+    )
+
+    if (-not (Test-Path $cacheFile)) { return }
+
+    # Read existing cache
+    $cache = @{}
+    $lines = Get-Content $cacheFile
+    foreach ($line in $lines) {
+        if ($line -match "^(.+):(.+)$") {
+            $cache[$matches[1]] = $matches[2]
+        }
+    }
+
+    # Remove entry for this directory
+    $cache.Remove($directory)
+
+    # Write back cache
+    $content = ""
+    foreach ($key in $cache.Keys) {
+        $content += "$key`:$($cache[$key])`n"
+    }
+    Set-Content -Path $cacheFile -Value $content.TrimEnd()
 }

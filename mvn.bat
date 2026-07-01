@@ -4,32 +4,42 @@ set "javapath="
 rem Check JENVUSE first (session override)
 if defined JENVUSE (
     set "javapath=%JENVUSE%"
-) else (
-    rem Read from cache file
-    if exist "%~dp0jenv.java.cache" (
-        set /p javapath=<"%~dp0jenv.java.cache"
+    goto set_maven
+)
+
+rem Get current directory
+set "currdir=%CD%"
+
+rem Read cache from JEnv directory
+if exist "%~dp0jenv.java.cache" (
+    for /f "usebackq tokens=1,2 delims=:" %%a in ("%~dp0jenv.java.cache") do (
+        if "%%a"=="%currdir%" (
+            set "javapath=%%b"
+            goto set_maven
+        )
     )
 )
 
-rem Fall back to jenv getjava if no cache
-if not defined javapath (
-    for /f "delims=" %%i in ('jenv getjava') do set "javapath=%%i"
-)
+rem Fall back to jenv getjava
+for /f "delims=" %%i in ('jenv getjava') do set "javapath=%%i"
 
-rem Set JAVA_HOME for Maven
+:set_maven
 if defined javapath (
     set "JAVA_HOME=%javapath%"
 )
 
-rem Maven home - customize if your Maven is installed elsewhere
-set "MAVEN_HOME=%MAVEN_HOME%"
+rem Maven home
 if not defined MAVEN_HOME (
-    set "MAVEN_HOME=E:\app\apache-maven-3.9.8"
+    echo MAVEN_HOME environment variable is not set.
+    echo Please set MAVEN_HOME to your Maven installation directory.
+    echo Example: set MAVEN_HOME=D:\app\apache-maven-3.9.8
+    exit /b 1
 )
 
 if exist "%MAVEN_HOME%\bin\mvn.cmd" (
     "%MAVEN_HOME%\bin\mvn.cmd" %*
 ) else (
     echo Maven not found at %MAVEN_HOME%
-    echo Set MAVEN_HOME environment variable or edit %~dp0mvn.bat
+    echo Please check your MAVEN_HOME environment variable.
+    exit /b 1
 )

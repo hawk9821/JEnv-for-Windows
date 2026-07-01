@@ -4,18 +4,26 @@ set "var="
 rem Check JENVUSE environment variable first (session override from jenv use)
 if defined JENVUSE (
     set "var=%JENVUSE%"
-) else (
-    rem Read from cache file to avoid PowerShell startup
-    if exist "%~dp0jenv.java.cache" (
-        set /p var=<"%~dp0jenv.java.cache"
+    goto run_java
+)
+
+rem Get current directory for cache lookup
+set "currdir=%CD%"
+
+rem Read cache from JEnv installation directory
+if exist "%~dp0jenv.java.cache" (
+    for /f "usebackq tokens=1,2 delims=:" %%a in ("%~dp0jenv.java.cache") do (
+        if "%%a"=="%currdir%" (
+            set "var=%%b"
+            goto run_java
+        )
     )
 )
 
-rem If var is still empty, fall back to calling jenv getjava (requires PowerShell)
-if not defined var (
-    for /f "delims=" %%i in ('jenv getjava') do set "var=%%i"
-)
+rem If not in cache, call jenv getjava
+for /f "delims=" %%i in ('jenv getjava') do set "var=%%i"
 
+:run_java
 if exist "%var%/bin/java.exe" (
     "%var%/bin/java.exe" %*
 ) else (

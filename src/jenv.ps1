@@ -33,6 +33,10 @@ param (
     [Alias("y")]
     [Switch]$yes,
 
+    # Sync cache from config history when cache file does not exist
+    [Alias("s")]
+    [Switch]$syncCache,
+
     [parameter(mandatory = $false, position = 1, ValueFromRemainingArguments = $true)]$arguments
 )
 
@@ -200,7 +204,7 @@ else {
         use { Invoke-Use $config $help $output @arguments }
         change { Invoke-Change $config $help $output @arguments }
         local { Invoke-Local $config $help @arguments }
-        getjava { Get-Java $config }
+        getjava { Get-Java $config -SyncCache:$syncCache }
         link { Invoke-Link $help @arguments }
         uninstall { Invoke-Uninstall $config $help @arguments }
         autoscan { Invoke-AutoScan $config $help $yes @arguments }

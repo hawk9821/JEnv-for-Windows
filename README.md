@@ -33,7 +33,7 @@ JEnv uses path caching to avoid PowerShell startup overhead on every `java` call
 - Subsequent `java` calls: ~300ms (reads cache directly)
 - If `JENVUSE` env var is set, `java` uses it directly without cache lookup
 
-To force cache refresh after changing `jenv local`, run `jenv local <name>` again or call `jenv getjava` once.
+To force cache refresh after changing `jenv local`, run `jenv local <name>` again or call `jenv getjava` once. To rebuild cache from config history, use `jenv getjava --sync-cache`.
 
 ## Usage (Note: local overwrites change. use overwrites local)
 1) **Add a new Java  environment (requires absolute path)**  
@@ -90,10 +90,24 @@ Example: `jenv autoscan` // Will search entire system
 Example: `jenv autoscan -y "C:\Program Files\Java"` // Will accept defaults
 Note: Autoscan uses the JDK version number as the name (e.g., "8", "11", "17"), not "jdk8", "jdk11", etc.
 
-12) **Get the resolved Java path (for scripting/debugging)**  
-*jenv getjava*  
-Example: `jenv getjava`  
-Returns the Java path that would be used, following priority: JENVUSE > local > parent local > global. Also refreshes the cache.
+12) **Get the resolved Java path (for scripting/debugging)**
+*jenv getjava [--sync-cache | -s]*
+Example: `jenv getjava`
+Example: `jenv getjava --sync-cache`
+Returns the Java path that would be used, following priority: JENVUSE > local > parent local > global.
+
+**--sync-cache / -s**: When the cache file does not exist, rebuild it from config history (locals + global). Useful after reinstalling JEnv or when the cache file was deleted.
+
+## Maven / Maven Daemon Integration
+
+JEnv provides `mvn.bat` and `mvnd.bat` wrappers that automatically set `JAVA_HOME` before invoking Maven:
+
+- **MAVEN_HOME** (required): Must be set to your Maven installation directory
+- **MVND_HOME** (required): Must be set to your Maven Daemon installation directory
+
+Unlike Java version management, Maven/Mvnd installations are not managed by JEnv. You must install them separately and configure the environment variables.
+
+If the environment variable is not set, the batch file will display an error message and exit.
 
 ## How does this work?
 This script creates a java.bat file that calls the java.exe with the correct version
@@ -106,6 +120,7 @@ An additional parameter to the PowerShell script was added. "--output" alias "-o
 3. Falls back to reading `jenv.java.cache` file (instant, no PowerShell)
 4. If no cache, calls `jenv getjava` via PowerShell to resolve and cache the path
 5. Subdirectory inheritance: `jenv getjava` traverses parent directories to find `jenv local` settings
+6. Use `jenv getjava --sync-cache` to rebuild cache from config history when cache file is missing
 
 ![SystemEnvironmentVariablesHirachyShell](https://user-images.githubusercontent.com/55546882/130204196-1a800310-4454-49bd-8d80-161b0e7cca3f.PNG)
 

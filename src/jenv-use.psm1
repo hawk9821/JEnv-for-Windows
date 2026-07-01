@@ -14,17 +14,18 @@ function Invoke-Use {
         return
     }
 
+    # Cache file in JEnv installation directory
+    $cacheFile = Join-Path (Split-Path $PSScriptRoot -Parent) "jenv.java.cache"
+    $currentPath = (Get-Location).ProviderPath
+
     # Remove the local JEnv
     if ($name -eq "remove") {
         $Env:JENVUSE = $null # Set for powershell users
         if ($output) {
             Set-Content -path "jenv.use.tmp" -value "remove" # Create temp file so no restart of the active shell is required
         }
-        # Clear cache file
-        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
-        if (Test-Path $cacheFile) {
-            Remove-Item -path $cacheFile
-        }
+        # Remove this directory from cache
+        Remove-CacheEntry -cacheFile $cacheFile -directory $currentPath
         Write-Host "Your session JEnv was unset"
         return
     }
@@ -43,9 +44,65 @@ function Invoke-Use {
             Set-Content -path "jenv.home.tmp" -value $jenv.path # Create temp file so no restart of the active shell is required
             Set-Content -path "jenv.use.tmp" -value $jenv.path # Create temp file so no restart of the active shell is required
         }
-        # Cache path for java.bat to avoid PowerShell startup on every java call
-        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
-        Set-Content -path $cacheFile -value $jenv.path
+        # Update cache for current directory
+        Update-Cache -cacheFile $cacheFile -directory $currentPath -path $jenv.path
         Write-Host 'JEnv changed for the current shell session. Careful this overwrites "jenv local"'
     }
+}
+
+function Update-Cache {
+    param(
+        [string]$cacheFile,
+        [string]$directory,
+        [string]$path
+    )
+
+    # Read existing cache
+    $cache = @{}
+    if (Test-Path $cacheFile) {
+        $lines = Get-Content $cacheFile
+        foreach ($line in $lines) {
+            if ($line -match "^(.+):(.+)$") {
+                $cache[$matches[1]] = $matches[2]
+            }
+        }
+    }
+
+    # Update entry for this directory
+    $cache[$directory] = $path
+
+    # Write back cache
+    $content = ""
+    foreach ($key in $cache.Keys) {
+        $content += "$key`:$($cache[$key])`n"
+    }
+    Set-Content -Path $cacheFile -Value $content.TrimEnd()
+}
+
+function Remove-CacheEntry {
+    param(
+        [string]$cacheFile,
+        [string]$directory
+    )
+
+    if (-not (Test-Path $cacheFile)) { return }
+
+    # Read existing cache
+    $cache = @{}
+    $lines = Get-Content $cacheFile
+    foreach ($line in $lines) {
+        if ($line -match "^(.+):(.+)$") {
+            $cache[$matches[1]] = $matches[2]
+        }
+    }
+
+    # Remove entry for this directory
+    $cache.Remove($directory)
+
+    # Write back cache
+    $content = ""
+    foreach ($key in $cache.Keys) {
+        $content += "$key`:$($cache[$key])`n"
+    }
+    Set-Content -Path $cacheFile -Value $content.TrimEnd()
 }

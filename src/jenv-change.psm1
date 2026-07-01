@@ -13,6 +13,9 @@ function Invoke-Change {
         return
     }
 
+    # Cache file in JEnv installation directory
+    $cacheFile = Join-Path (Split-Path $PSScriptRoot -Parent) "jenv.java.cache"
+
     # Check if specified JEnv is avaible
     $jenv = $config.jenvs | Where-Object { $_.name -eq $name }
     if ($null -eq $jenv) {
@@ -27,9 +30,35 @@ function Invoke-Change {
             Set-Content -path "jenv.home.tmp" -value $jenv.path # Create temp file so no restart of the active shell is required
         }
         [System.Environment]::SetEnvironmentVariable("JAVA_HOME", $jenv.path, [System.EnvironmentVariableTarget]::User) # Set globally}
-        # Cache path for java.bat to avoid PowerShell startup on every java call
-        $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
-        Set-Content -path $cacheFile -value $jenv.path
+
+        # Update global in cache
+        Update-GlobalCache -cacheFile $cacheFile -path $jenv.path
+
         Write-Host "JEnv changed globally"
     }
+}
+
+function Update-GlobalCache {
+    param(
+        [string]$cacheFile,
+        [string]$path
+    )
+
+    $cache = @{}
+    if (Test-Path $cacheFile) {
+        $lines = Get-Content $cacheFile
+        foreach ($line in $lines) {
+            if ($line -match "^(.+):(.+)$") {
+                $cache[$matches[1]] = $matches[2]
+            }
+        }
+    }
+
+    $cache["_global_"] = $path
+
+    $content = ""
+    foreach ($key in $cache.Keys) {
+        $content += "$key`:$($cache[$key])`n"
+    }
+    Set-Content -Path $cacheFile -Value $content.TrimEnd()
 }
