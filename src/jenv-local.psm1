@@ -34,13 +34,15 @@ function Invoke-Local {
     }
 
     # Check if path is already used
-    foreach ($jenv in $config.locals) {
-        if ($jenv.path -eq (Get-Location)) {
+    # Store JDK path before loop as $jenv gets overwritten in foreach
+    $jdkPath = $jenv.path
+    foreach ($localEntry in $config.locals) {
+        if ($localEntry.path -eq (Get-Location)) {
             # if path is used replace with new version
-            $jenv.name = $name
-            # Update cache file
+            $localEntry.name = $name
+            # Update cache file with JDK path, not directory path
             $cacheFile = Join-Path $PSScriptRoot "..\jenv.java.cache"
-            Set-Content -path $cacheFile -value $jenv.path
+            Set-Content -path $cacheFile -value $jdkPath
             Write-Output ("Your replaced your java version for {0} {1}" -f (Get-Location), $name)
             return
         }
